@@ -1,0 +1,826 @@
+---
+title: "pe_project - models"
+author: "laispetri"
+date: "`r format(Sys.time(), "%m/%d/%Y")`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+**Please, read these notes before running the code:**
+
+1. You will need to create the following folders in the working directory: "data", "figures", and "modelparameters".
+2. Paste the files from this webpage (XXXX) inside of the "data" folder you just created.
+3. Note: figures included in the main manuscript or SM will not be displayed in the html file after knitting. They will be inside of the folder you created, "figures". The aspect ratio could not be maintained when knitting (probably due to my own coding limitation).
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+
+```{r packages and directory, echo=FALSE}
+# loading the packages
+## data wrangling
+require(tidyverse) 
+## models
+require(rjags)
+require(coda)
+require(broom)
+## color blind discrete colors
+require(pals) 
+```
+
+Paths to import files, and export outputs
+```{r}
+workingdir <- getwd()
+datain <- file.path(workingdir, "data")
+graph.wd <- file.path(workingdir, "figures")
+dataout <- file.path(workingdir, "modelparameters")
+```
+
+Defining colors
+```{r}
+sitecolor<-as.vector(alphabet(4))
+sitecolor2<-c("#F0A0FF","#cce3f8")
+mocolor<-as.vector(alphabet2(3))
+mocolor2 <- c("#DD9EFE","#AA0DFE","#ADCDFE","#3283FE","#CEC19E","#85660D")
+```
+
+# Cover time-series models
+## Importing data sets:
+```{r datasets}
+data <- as_tibble(read.csv(file.path(datain,'data.csv'),
+                              header = T, stringsAsFactors = F))
+
+richnessN <- as_tibble(read.csv(file.path(datain,'richnessN.csv'), 
+                            header = T, stringsAsFactors = F))
+
+coverI2019 <- as_tibble(read.csv(file.path(datain,'coverI2019.csv'), 
+                                 header = T, stringsAsFactors = F)) 
+
+dominantI <- as_tibble(read.csv(file.path(datain,'dominantI.csv'), 
+                                  header = T, stringsAsFactors = F))
+
+traitsSeedMix <- as_tibble(read.csv(file.path(datain,'traitsSeedMix.csv'), 
+                                  header = T, stringsAsFactors = F)) 
+
+traitsDiversity <- as_tibble(read.csv(file.path(datain,'traitsDiversity.csv'), 
+                                  header = T, stringsAsFactors = F))
+
+VPD <- read.csv(file.path(datain,"VPD.csv"), header = TRUE, stringsAsFactors = FALSE)
+``` 
+
+## Model
+Organizing variables
+```{r data formatting model}
+datamodel <- list (P=length(unique(data$ID)), 
+                   S=length(unique(data$subplot)),
+                   treatment=data$subplot,
+                   Y=3, #number of years
+                   Cover=as.matrix(data[,6:8]),
+                   RichN=as.matrix(data[,9:11]),
+                   sm=as.matrix(data[,12:14]),
+                   Cover2019=data$Cover2019,
+                   grassAG20=data$grassAG1,
+                   forbsAG20=data$forbAG1,
+                   woodyAG20=data$woodyAG1,
+                   grassAG21=data$grassAG2,
+                   forbsAG21=data$forbAG2,
+                   woodyAG21=data$woodyAG2,
+                   light=as.matrix(data[,24:26]),
+                   SLA=as.matrix(data[,21:23]),
+                   ID=data$ID)
+```
+
+Initials
+```{r}
+inits <- list(
+  list(B = matrix(c(rep(-30, times=3*length(unique(data$subplot)))),ncol=3),
+       tau = c(rep(1, times = 1)),
+       alpha = c(rep(-1, times=4)),
+       w = c(rep(0.33, times=3))
+       ),
+  list(B = matrix(c(rep(0, times=3*length(unique(data$subplot)))),ncol=3),
+       tau = c(rep(0.1, times = 1)),
+       alpha = c(rep(0, times=4)),
+       w = c(rep(0.33, times=3))
+       ),
+  list(B = matrix(c(rep(30, times=3*length(unique(data$subplot)))),ncol=3),
+       tau = c(rep(0.5, times = 1)),
+       alpha = c(rep(1, times=4)),
+       w = c(rep(0.33, times=3))
+       )
+)
+```
+
+Model code
+```{r FinalModel}
+FinalModel<-"model{
+
+ for(i in 1:P){ #number of subplots
+     for(t in 1:Y){ #number of years
+        
+        Cover[i,t]~dnorm(C[i,t],tau) #likelihood
+        Cover.pred[i,t]~dnorm(C[i,t],tau) #predicted values
+        
+        residuals[i,t]<-Cover.pred[i,t]-Cover[i,t] #calculating residuals
+        
+      }
+        
+    C[i,1]<-B[treatment[i],1]*Cover2019[i]+alpha[1]*RichN[i,2]+alpha[2]*SLA[i,2]+alpha[3]*light[i,2]+alpha[4]*sm[i,2] #process model for 2020
+     
+    C[i,2]<-B[treatment[i],2]*(w[1]*grassAG20[i]+w[2]*forbsAG20[i]+w[3]*woodyAG20[i])+alpha[1]*RichN[i,2]+alpha[2]*SLA[i,2]+alpha[3]*light[i,2]+alpha[4]*sm[i,2] #process model for 2021
+     
+    C[i,3]<-B[treatment[i],3]*(w[1]*grassAG21[i]+w[2]*forbsAG21[i]+w[3]*woodyAG21[i])+alpha[1]*RichN[i,2]+alpha[2]*SLA[i,2]+alpha[3]*light[i,2]+alpha[4]*sm[i,2] #process model for 2022
+    
+
+  }
+
+# priors
+for(i in 1:4){
+alpha[i]~dnorm(0,0.01) 
+}
+
+for(i in 1:S){ #number of treatments
+for(t in 1:Y){
+    B[i,t]~dnorm(0,0.1)
+}
+}
+
+w[1:3]~ddirich(W[])
+for(i in 1:3){
+W[i]<-1
+}
+
+tau~dgamma(0.0001,0.0001)
+varC<-1/tau
+
+} #end of model"
+
+#exports model
+write.table(FinalModel,file.path(dataout,"FinalModel.txt"), sep = "\t",
+            row.names = TRUE, col.names = NA)
+
+```
+
+Compile
+```{r}
+m <-jags.model(textConnection(FinalModel), datamodel, inits, n.chains=3)
+```
+
+Burn-in
+```{r}
+update(m, 10000)
+```
+
+Running model and retrieving parameters
+```{r}
+parameters<-coda.samples(m, c("B", "tau", "varC", "alpha", "w"), 
+                         n.iter = 50000, thin = 100)
+parameters0<-summary(parameters)
+```
+
+Plot: Posterior distributions
+```{r} 
+parametersB<-coda.samples(m, c("B"), n.iter = 50000, thin = 100)
+pdf(paste0(file.path(dataout,"PosteriorDistributionsB.pdf")))
+par(mar = c(2, 2, 2, 2)) 
+plot(parametersB)
+dev.off()
+
+pdf(paste0(file.path(dataout,"PosteriorDistributionsLikelihoodTau.pdf")))
+plot(parameters[,'tau'], main="tau")
+plot(parameters[,'varC'], main="varC")
+dev.off()
+
+parametersalpha<-coda.samples(m, c("alpha"), n.iter = 50000, thin = 100)
+pdf(paste0(file.path(dataout,"PosteriorDistributionsAlpha.pdf")))
+par(mar = c(2, 2, 2, 2)) 
+plot(parametersalpha)
+dev.off()
+
+parametersW<-coda.samples(m, c("w"), n.iter = 50000, thin = 100)
+pdf(paste0(file.path(dataout,"PosteriorDistributionsW.pdf")))
+par(mar = c(2, 2, 2, 2)) 
+plot(parametersW)
+dev.off()
+```
+
+Exporting parameter values, predictions and residuals
+```{r}
+Stats <- as.data.frame(parameters0[1]) %>% mutate_if(is.numeric, round,digits=4) %>% rownames_to_column(., var = "ParameterID")
+write_csv(Stats, file.path(dataout,"ParametersStatistics.csv"))
+Quantiles <- as.data.frame(parameters0[2]) %>% mutate_if(is.numeric, round,digits=4) %>% rownames_to_column(., var = "ParameterID")
+write_csv(Quantiles, file.path(dataout,"ParametersQuantiles.csv"))
+
+predicted <- coda.samples(m, c("Cover.pred"), n.iter=10000, thin = 1)
+ pred <- as.data.frame(summary(predicted)$statistics)
+pred <- pred %>% rename_all(function(x) paste0(x,"_pred")) %>% rownames_to_column(., var = "modelID") %>% mutate(ID=row_number())
+write_csv(pred, file.path(dataout,"Predicted.csv"))
+
+res <- coda.samples(m, c("residuals"), n.iter=10000, thin = 1)
+res <- as.data.frame(summary(res)$statistics)
+res <- res %>% rename_all(function(x) paste0(x,"_res")) %>% rownames_to_column(., var = "modelID_res") %>% mutate(ID=row_number())
+write_csv(res, file.path(dataout,"Residuals.csv"))
+
+```
+
+Merging model predictions and raw data
+```{r}
+predModel <- data %>% pivot_longer(c(Cover1,Cover2,Cover3)) %>% group_by(name,ID) %>% mutate(ID=cur_group_id()) %>% ungroup() %>% left_join(res) %>% rename(residuals=Mean_res) %>% left_join(pred) %>% mutate(site = str_sub(forest_stand,end=-2), year=ifelse(name=="Cover1",2020,ifelse(name=="Cover2",2021,2022))) %>% left_join(dominantI) %>% 
+  left_join(coverI2019) %>% distinct() %>% mutate(sppName=ifelse(is.na(sppName), "No invader",sppName))
+glimpse(predModel)
+```
+
+Plot: predicted against observed
+```{r fit}
+fit <- lm(value ~ Mean_pred - 1, data = predModel)
+ggplot(data = predModel, aes(y = value, x = Mean_pred)) +
+  geom_hline(yintercept=0, color="black", linetype="dashed", alpha=.5, linewidth=1)+
+  stat_function(fun = function(x) predict(fit, newdata = data.frame(Mean_pred = x)),
+                color = "black", linewidth = 2) +
+  annotate(label = sprintf("y = %.3f x\nR² = %.2f", coef(fit), summary(fit)$r.squared),
+           geom = "text", x = 10, y = 90, size = 5) +
+  geom_point(shape=19,size=2,alpha=0.5) +
+  scale_y_continuous(limits=c(0,100))+
+  scale_x_continuous(limits=c(0,NA))+
+  ylab("Observed values")+
+  xlab("Predicted values")+ 
+  theme_bw()+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.y = element_text(size = 14),
+        axis.text.x = element_text(size = 13),
+        axis.title = element_text(size = 17),
+        strip.text.x = element_text(size = 15),
+        axis.line = element_line(colour = "black"),
+      panel.border = element_blank(),
+      plot.title = element_text(hjust = 0.5,size=18,color="darkblue"),
+      panel.spacing = unit(1, "lines"))
+
+ggsave(file.path(graph.wd,"ModelFit.png"), plot = last_plot(), width=7, height=5, dpi = 300, units="in")
+    
+```
+
+## Results
+Wrangling data to plot hyper parameter B
+```{r}
+BETAmodelpar<- as.data.frame(parameters0[2]) %>% 
+  rownames_to_column(., var = "parameter") %>% 
+  filter(grepl("^B",parameter)) %>% mutate(ID=rep(1:6,3),
+                                            year=rep(2020:2022,times=1,each=6),
+                                            subplot=rep(1:6,times=3),
+                                            filling=ifelse(`quantiles.2.5.`<0&`quantiles.97.5.`<0|
+                                                              `quantiles.2.5.`>0&`quantiles.97.5.`>0,
+                                                            "black","white")) %>% 
+  left_join(distinct(dplyr::select(data,c("subplot","subplotOriginal")))) %>% distinct() %>% 
+  rename(subplotNEW=subplot,
+         subplot=subplotOriginal)
+```
+
+(Q1) Could seed additions be a successful practice driving community assembly after invasive plant removal?
+```{r}
+DataPlot <- BETAmodelpar %>% 
+  filter(subplot==1|subplot==7|subplot==4|subplot==10|subplot==3|subplot==9) %>%
+  arrange(subplot) %>% 
+  mutate(Treatment=ifelse(subplot<7,1,2),
+         Treatment=ifelse(year==2021,Treatment+2,
+                          ifelse(year==2022,Treatment+4,Treatment))) %>% 
+  arrange(year) %>% 
+  mutate(guide = rep(1:3, times=6)) %>% 
+  arrange(year,guide) %>% 
+  mutate(index=seq(1,length=18,by=0.3),
+         index=ifelse(year==2021,index+0.2,
+                      ifelse(year==2022,index+0.4,index)),
+         type=ifelse(subplot==3|subplot==9,"Forbs and\ngrasses added",ifelse(subplot==4|subplot==10,"Forbs added","Control")),
+         removal=ifelse(subplot<5,"One-time removal","Multi-year removal"))
+
+names(mocolor2) <- c("1","2","3","4","5","6")
+
+DataPlot$type <- factor(DataPlot$type, levels = c("Control","Forbs and\ngrasses added","Forbs added"))
+
+DataPlot %>% 
+  ggplot(aes(y=`quantiles.50.`,x=index,color=as.factor(Treatment),shape=type))+  
+  geom_errorbar(aes(ymin=`quantiles.2.5.`, ymax=`quantiles.97.5.`),
+                width=.1, linewidth=1.3)+
+  geom_hline(yintercept=0, color="black", linetype="dashed", alpha=.5, linewidth=1)+
+  geom_point(size=6,aes(shape=as.factor(type)),stroke=2)+
+  scale_y_continuous(n.breaks=6)+
+  scale_x_continuous(breaks=c(1.85,3.85,5.85),
+                     labels=c("2020","2021","2022"),
+                     expand=c(0,0.3))+
+  scale_color_manual(values=mocolor2, 
+                     breaks=c("1","2"),
+                     labels=c("One-time removal","Multi-year removal"),
+                     guide=guide_legend(override.aes = list(shape=16,size=4,linetype = c(0,0),
+                                                            color="black",alpha=c(0.2,1))))+
+  ylab("Native community recovery rate\n(mean+95%CI)")+
+  theme_classic()+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.y = element_text(size = 20),
+        axis.text.x = element_text(size=22,color = c(mocolor2[2], mocolor2[4], mocolor2[6])),
+        axis.title = element_text(size = 20, face="bold"),
+        axis.title.x = element_blank(),
+        axis.title.y = element_text(vjust = 1),
+        legend.margin=margin(-4,3,2,1),
+        legend.position = c(0.17,0.74),
+        legend.text = element_text(size=15),
+        legend.background = element_blank(),
+        legend.title = element_blank(),
+        axis.line = element_line(colour = "black"),
+        panel.border = element_blank(),
+        panel.spacing = unit(1, "lines")) +   
+   guides(shape = guide_legend(override.aes = list(shape=c(1,2,0),size=3.5)))+
+  annotate("text", x=0.9,y=3.6,label="(A)",fontface="bold",size=6) +
+  annotate("text", x=1,y=0.75,label="ac",size=5) +
+  annotate("text", x=1.3,y=0.77,label="ac",size=5) +
+  annotate("text", x=1.6,y=0.54,label="a",size=5) +
+  annotate("text", x=1.9,y=0.75,label="ac",size=5) +
+  annotate("text", x=2.2,y=0.55,label="a",size=5) +
+  annotate("text", x=2.5,y=0.45,label="a",size=5) +
+  annotate("text", x=3,y=1.55,label="be",size=5) +
+  annotate("text", x=3.3,y=2.13,label="be",size=5) +
+  annotate("text", x=3.6,y=1.3,label="bce",size=5) +
+  annotate("text", x=3.9,y=2.1,label="be",size=5) +
+  annotate("text", x=4.2,y=1.15,label="bcd",size=5) +
+  annotate("text", x=4.5,y=2.1,label="be",size=5) +
+  annotate("text", x=5,y=1.02,label="bcd",size=5) +
+  annotate("text", x=5.3,y=1.35,label="bcd",size=5) +
+  annotate("text", x=5.6,y=0.83,label="bcd",size=5) +
+  annotate("text", x=5.9,y=1.35,label="bcd",size=5) +
+  annotate("text", x=6.2,y=0.73,label="bcd",size=5) +
+  annotate("text", x=6.5,y=1.25,label="bcd",size=5)
+
+ggsave(file.path(graph.wd,"Q1.png"), plot = last_plot(), width=8, height=5, dpi = 300, units="in")
+```
+
+Contribution of growth forms to treatment effects over time
+```{r}
+GFmodelpar <- as.data.frame(parameters0[2]) %>% 
+  rownames_to_column(., var = "parameter") %>% 
+  filter(grepl("^w",parameter)) 
+
+GFmodelpar %>%  
+  ggplot(aes(y=`quantiles.50.`,x=parameter))+
+  geom_errorbar(aes(ymin=`quantiles.2.5.`, ymax=`quantiles.97.5.`),width=.1, linewidth=1.3, color="black")+
+  geom_point(shape=18,size=9) + 
+  scale_x_discrete(labels=c("Graminoids","Forbs", "Woody"))+
+  scale_y_continuous(limits=c(0,0.6))+
+  ylab("Growth form contribution\n(mean+95%CI)")+
+  theme_bw()+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text = element_text(size = 18),
+        axis.title.y = element_text(size=18,face="bold"),
+        axis.title.x = element_blank(),
+        axis.line = element_line(colour = "black"),
+      panel.border = element_blank(),
+      plot.title = element_text(hjust = 0.5,size=18,color="darkblue"))+
+  annotate("text", x=0.62,y=0.6,label="(B)",fontface="bold",size=5)+
+  annotate("text", x=1,y=0.23,label="a",size=6) +
+  annotate("text", x=2,y=0.25,label="a",size=6) +
+  annotate("text", x=3,y=0.24,label="a",size=6) 
+
+ggsave(file.path(graph.wd,"GrowthForms.png"), plot = last_plot(), width=6, height=5, dpi = 300, units="in")
+
+```
+
+(Q2) What characteristics of the native plant community are associated with faster recovery?
+(Q3) Is the recovery of the native community affected by environmental conditions, specifically, light and soil water availability?
+```{r}
+# calculating means, so alphas are comparable
+tgfMean<-as.numeric(data %>% select(c("light1","light2","light3")) %>% pivot_longer(1:3) %>% summarise(tgfMean=mean(value)))
+smMean<-as.numeric(data %>% select(c("smJL1","smJL2","smJL3")) %>% pivot_longer(1:3) %>% summarise(tgfMean=mean(value)))
+RichNMean<-as.numeric(data %>% select(c("RichNJN1","RichNJN2","RichNJN3")) %>% pivot_longer(1:3) %>% summarise(tgfMean=mean(value)))
+TraitMean<-as.numeric(data %>% select(c("SLA61","SLA62","SLA63")) %>% pivot_longer(1:3) %>% summarise(tgfMean=mean(value)))
+
+ALPHAmodelpar <- as.data.frame(parameters0[2]) %>% 
+  rownames_to_column(., var = "parameter") %>% 
+  filter(grepl("^alpha",parameter)) %>% 
+  mutate(ID=row_number(),
+         `quantiles.50.`=ifelse(ID==1,`quantiles.50.`*mean(RichNMean),
+                                ifelse(ID==4,`quantiles.50.`*mean(smMean),
+                                       ifelse(ID==3,`quantiles.50.`*mean(tgfMean),`quantiles.50.`*mean(TraitMean)))),
+         `quantiles.2.5.`=ifelse(ID==1,`quantiles.2.5.`*mean(RichNMean),
+                                 ifelse(ID==4,`quantiles.2.5.`*mean(smMean),
+                                        ifelse(ID==3,`quantiles.2.5.`*mean(tgfMean),`quantiles.2.5.`*mean(TraitMean)))),
+         `quantiles.97.5.`=ifelse(ID==1,`quantiles.97.5.`*mean(RichNMean),
+                                  ifelse(ID==4,`quantiles.97.5.`*mean(smMean),
+                                         ifelse(ID==3,`quantiles.97.5.`*mean(tgfMean),`quantiles.97.5.`*mean(TraitMean)))),
+         Filling=ifelse(`quantiles.2.5.`<0&`quantiles.97.5.`<0|
+                                                              `quantiles.2.5.`>0&`quantiles.97.5.`>0,
+                                                            "black","white"),
+         ID=ifelse(ID==3,2.9,ifelse(ID==2,1.95,ID)))
+ALPHAmodelpar %>% 
+  ggplot(aes(y=`quantiles.50.`,x=ID))+
+  geom_errorbar(aes(ymin=`quantiles.2.5.`, ymax=`quantiles.97.5.`),width=.1, linewidth=1.3, color="black")+
+  geom_hline(yintercept=0, color="black", linetype="dashed", alpha=.5, linewidth=1)+
+  geom_point(shape=21,size=8,fill=ALPHAmodelpar$Filling)+
+  scale_x_continuous(breaks=c(1,1.95,2.9,4),
+                      labels=c("Native richness", expression("CWM"[SLA]),"Light availability","Soil moisture"),
+                     limits=c(0.6,4.25))+
+  ylab("Association with native cover\n(mean+95%CI)")+
+  theme_bw()+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.x = element_text(size = 16),
+        axis.text.y = element_text(size = 18),
+        axis.title = element_text(size = 20, face="bold"),
+        axis.title.x = element_blank(),
+        legend.margin=margin(t=-10),
+        legend.title = element_blank(),
+        axis.line = element_line(colour = "black"),
+      panel.border = element_blank()) +
+  annotate("text", x=0.6,y=20,label="(A)",fontface="bold",size=6)
+  
+
+ggsave(file.path(graph.wd,"CovariatesEffects.png"), plot = last_plot(), width=6.8, height=5.2, dpi = 300, units="in")
+```
+
+Vapor Pressure Deficit (VPD)
+```{r}
+VPD %>% 
+  ggplot(aes(x=ID,y=VPD_cumsum,color=as.factor(year))) + 
+  geom_line(linewidth=1.5)+
+  ylab("Cumulative VPD\n(kPa, based on daily average values)")+
+  # labs(y=expression(atop(bold("Cumulative VPD"),atop("(kPa, based on daily average values)")))) +
+  scale_color_manual(values=mocolor)+
+  scale_y_continuous(n.breaks = 5)+
+  scale_x_continuous(breaks=c(1,32,61,93),
+                     labels=c("May","June","July","August"),
+                     expand=c(0,0.3))+
+  theme_bw()+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text = element_text(size = 18),
+        axis.title.y = element_text(size = 20,face="bold"),
+        axis.title.x = element_blank(),
+        legend.margin=margin(-4,3,2,1),
+        legend.position = c(0.11,0.8),
+        legend.text = element_text(size=15),
+        legend.title = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(colour = "black"))+
+  annotate("segment", x=-Inf, xend=Inf, y=-Inf, yend=-Inf)+
+  annotate("text", x=18,y=65,label="(B) Forest 1",fontface="bold",size=6)
+ggsave(file.path(graph.wd,"CumVPD_oneSite.png"), plot = last_plot(), width=6.8, height=5.2, dpi = 300, units="in")
+```
+
+Which seeded species established the most? What are their characteristics?
+```{r}
+#rectangles
+anno <- data.frame(x1min=c(14.64440-(2*4.957329),26.17733-(2*14.032200),
+                           15.83125-(2*2.296895),24.62900-(2*7.969518)), 
+                   x1max=c(14.64440+(2*4.957329),26.17733+(2*14.032200),
+                           15.83125+(2*2.296895),24.62900+(2*7.969518)),
+                   y1min=c(Inf,Inf,Inf,Inf),
+                   y1max=c(-Inf,-Inf,-Inf,-Inf),
+                   Presence=c(0,1,0,1),
+                   MixType=c("(A) Forbs added","(A) Forbs added","(B) Grasses added","(B) Grasses added"))
+anno2 <- data.frame(x1=c(45,45),
+                    x2=c(45,45),
+                    y1=c(0.031,0.031),
+                    y2=c(0.031,0.031),
+                    MixType=c("(A) Forbs added","(B) Grasses added"),
+                    colorseg=c("white","black"))
+
+dev.off()
+
+traitsDiversity %>% 
+  ggplot(aes(x = SLA_mm2.mg,y = after_stat(density))) +
+  geom_density(color = "black", linewidth = 1.5) +
+  geom_errorbarh(aes(y = 0.002,xmin=SLAmean-(2*SLAsd), xmax=SLAmean+(2*SLAsd),color=as.factor(Presence)), traitsSeedMix,height=.003, linewidth=1.3,alpha=0.7)+
+  geom_point(aes(y = 0.002,x=SLAmean,color=as.factor(Presence)), traitsSeedMix, shape=19,size=5)+
+  geom_rect(data=anno,aes(x = NULL,y = NULL,xmin=x1min,xmax=x1max,ymin=y1min,ymax=y1max,fill=as.factor(Presence)),alpha=0.2)+
+  scale_color_manual(values=c(sitecolor[1],sitecolor[2], "black", "white"),labels=c("Failed to\nestablish","Established","Occurring\nnatives",""))+
+  scale_fill_manual(values=sitecolor2)+
+    geom_segment(data=anno2,aes(x=x1,y=y1,xend=x2,yend=y2,color=colorseg))+
+  facet_grid(~MixType)+ 
+  xlab(expression(bold("SLA of native species (mm"^2*"/mg)")))+
+  ylab(expression(bold("Density")))+
+  theme_bw()+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+         axis.text = element_text(size = 18),
+        axis.title.y = element_text(size = 20,face="bold"),
+        axis.title.x = element_text(size = 17,face="bold"),
+        strip.text.x = element_text(size = 16,face="bold",hjust=0),
+        strip.background = element_blank(),
+        legend.title = element_blank(),
+        legend.position = c(0.89,0.8),
+        legend.text = element_text(size=15),
+        legend.background = element_blank(),
+        legend.margin=margin(-4,1,1,1),
+        axis.line = element_line(colour = "black"),
+      panel.border = element_blank(),
+      axis.text.x = element_text(angle = 0),
+        panel.spacing = unit(1, "lines"))+
+  guides(fill="none",color=guide_legend(override.aes = list(linetype=c(0,0,1,0),shape=c(16,16,NA,NA)))) 
+ggsave(file.path(graph.wd,"TraitsSeededSppv2.png"), plot = last_plot(), width=6.8, height=5.2, dpi = 300, units="in")
+
+traitsSeedMix %>% 
+  lm(frequency ~ SLA_mm2.mg, data = .) %>% 
+  broom::tidy(conf.int = TRUE)
+
+traitsSeedMix %>% 
+  filter(!is.na(frequency)) %>%
+  mutate(MixType=ifelse(MixType=="(A) Forbs added","Forb","Grass")) %>% 
+  ggplot(aes(x=SLA_mm2.mg,y=frequency,shape=MixType,color=MixType)) +
+  geom_point(size=7,alpha=0.7)+
+  scale_x_continuous(limits=c(10,55))+
+  scale_y_continuous(n.breaks = 7)+
+  scale_color_manual(values=c("#737373","black"))+
+  ylab("Number of occurences")+
+  xlab(expression(bold("SLA of established seeded natives (mm"^2*"/mg)"))) +
+  theme_bw()+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text = element_text(size = 18),
+        axis.title.x = element_text(size = 17,face="bold",hjust=0.5),
+        axis.title.y = element_text(size = 20,face="bold"),
+        legend.title = element_blank(),
+        legend.position = c(0.1,0.85),
+        legend.text = element_text(size=15),
+        legend.background = element_blank(),
+        legend.margin=margin(-4,2,2,2),
+        panel.border = element_blank(),
+        axis.line = element_line(colour = "black"),
+      axis.text.x = element_text(angle = 0)) + 
+  guides(shape = guide_legend(override.aes = list(size=5,alpha=1)))+
+  annotate("text", x=10,y=142,label="(C)",fontface="bold",size=6)
+ggsave(file.path(graph.wd,"TraitsSeededSppFreq.png"), plot = last_plot(), width=6.8, height=5.2, dpi = 300, units="in")
+```
+
+## Appendix
+Residual plots
+```{r residuals}
+#res ~ location
+p1<-ggplot(data = predModel, aes(y = residuals, x = site)) +
+  geom_hline(yintercept=0, color="black", linetype="dashed", alpha=.5, linewidth=1)+
+  geom_point(shape=19,size=5,alpha=0.2) +
+  ylab("Residuals")+ 
+  scale_x_discrete(labels=c("Forest 1","Forest 2","Forest 3","Forest 4"))+
+  theme_bw()+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.y = element_text(size = 14),
+        axis.text.x = element_text(size = 13,angle=35),
+        axis.title = element_text(size = 17),
+                axis.title.x = element_blank(),
+        axis.line = element_line(colour = "black"),
+      panel.border = element_blank(),
+      panel.spacing = unit(1, "lines"))+
+  annotate("text", x=0.6,y=55,label="(A)",fontface="bold",size=4)
+
+p2<-ggplot(data = predModel, aes(y = residuals, x = forest_stand)) +
+  geom_hline(yintercept=0, color="black", linetype="dashed", alpha=.5, linewidth=1)+
+  geom_point(shape=19,size=5,alpha=0.2) +
+  ylab("Residuals")+ 
+  scale_x_discrete(labels=c("1A","1B","1C",
+                            "2A","2B","2C","2D",
+                            "3A","3B",
+                            "4A","4B","4C"))+
+  theme_bw()+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.y = element_text(size = 14),
+        axis.text.x = element_text(size = 12,angle=35),
+        axis.title = element_blank(),
+        axis.line = element_line(colour = "black"),
+      panel.border = element_blank(),
+      panel.spacing = unit(1, "lines"))+
+  annotate("text", x=1,y=55,label="(B)",fontface="bold",size=4)
+
+#year
+p3<-ggplot(data = predModel, aes(x = as.factor(year), y = residuals)) +
+  geom_hline(yintercept=0, color="black", linetype="dashed", alpha=.5, linewidth=1)+
+  geom_point(shape=19,size=5,alpha=0.2) +
+  ylab("Residuals")+ 
+  xlab("  ")+
+  theme_bw()+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.y = element_text(size = 14),
+        axis.text.x = element_text(size = 13),
+        axis.title = element_text(size = 17),
+        axis.title.x = element_blank(),
+        axis.line = element_line(colour = "black"),
+      panel.border = element_blank(),
+      panel.spacing = unit(1, "lines"))+
+  annotate("text", x=0.55,y=55,label="(C)",fontface="bold",size=4)
+
+#cover ias
+p4<-ggplot(data = predModel, aes(x = CoverI2019, y = residuals)) +
+  geom_hline(yintercept=0, color="black", linetype="dashed", alpha=.5, linewidth=1)+
+  geom_point(shape=19,size=5,alpha=0.2) +
+  ylab("Residuals")+ 
+  xlab("Invasive species cover in 2019 (%)")+
+  theme_bw()+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.y = element_text(size = 14),
+        axis.text.x = element_text(size = 13),
+        axis.title.x = element_text(size = 13),
+        axis.title.y = element_blank(),
+        axis.line = element_line(colour = "black"),
+      panel.border = element_blank(),
+      plot.title = element_text(hjust = 0.5,size=18,color="darkblue"),
+      panel.spacing = unit(1, "lines"))+
+  annotate("text", x=5,y=55,label="(D)",fontface="bold",size=4)
+
+# overall figure
+p1 <- ggplotGrob(p1)
+p2 <- ggplotGrob(p2)
+p3 <- ggplotGrob(p3)
+p4 <- ggplotGrob(p4)
+#showing them all
+png(file.path(graph.wd, "Residuals.png"),width=7, height=7, res=300,units="in")
+grid::grid.draw(cbind(rbind(p1,p3), rbind(p2,p4)))
+grid::grid.draw(cbind(rbind(p1,p3), rbind(p2,p4)))
+dev.off()
+```
+
+Dominant invader
+```{r residuals}
+ggplot(data = predModel, aes(y = residuals, x = reorder(sppName,desc(sppName)),color=site)) +
+  coord_flip()+
+  geom_hline(yintercept=0, color="black", linetype="dashed", alpha=.5, linewidth=1)+
+  geom_point(shape=19,size=5,alpha=0.5) +
+  ylab("Residuals")+ 
+scale_color_manual(values = sitecolor,labels=c("Forest 1","Forest 2","Forest 3","Forest 4"))+
+  theme_bw()+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.y = element_text(size = 13,face = 'italic'),
+        axis.text.x = element_text(size = 13),
+        axis.title = element_text(size = 17),
+        axis.title.y = element_blank(),
+        strip.text.x = element_text(size = 15),
+        axis.line = element_line(colour = "black"),
+      panel.border = element_blank(),
+      plot.title = element_text(hjust = 0.5,size=18,color="darkblue"),
+      panel.spacing = unit(1, "lines"),
+      legend.position = "bottom",
+      legend.margin=margin(t=-10),
+      legend.title=element_blank())+   
+  guides(color = guide_legend(override.aes = list(alpha=100,size=5)))
+ggsave(file.path(graph.wd,"ResidualsIAS.png"), plot = last_plot(), width=7, height=6, dpi = 300, units="in")
+```
+
+Exploring effect of native richness
+```{r}
+RichnessCover <- richnessN %>% 
+  group_by(year, plot) %>% 
+  mutate(RichnessPlot_N = mean(Richness_N),
+         ES_FG_O = (PctCover_100_N[subplot==3]-PctCover_100_N[subplot==1])/(PctCover_100_N[subplot==3]+PctCover_100_N[subplot==1]/2),
+         ES_F_O = (PctCover_100_N[subplot==4]-PctCover_100_N[subplot==1])/(PctCover_100_N[subplot==4]+PctCover_100_N[subplot==1]/2),
+         ES_FG_M = (PctCover_100_N[subplot==9]-PctCover_100_N[subplot==7])/(PctCover_100_N[subplot==9]+PctCover_100_N[subplot==7]/2),
+         ES_F_M = (PctCover_100_N[subplot==10]-PctCover_100_N[subplot==7])/(PctCover_100_N[subplot==10]+PctCover_100_N[subplot==7]/2)) %>% 
+  ungroup() %>% 
+  pivot_longer(8:11,values_to = "ES",names_to = "Treatment") %>%
+  dplyr::select(-subplot,-PctCover_100_N,-Richness_N) %>% 
+  mutate(removal=ifelse(grepl("M$",Treatment),"Multi-year removal","One-time removal"),
+         seedMix=ifelse(grepl("^ES_FG_",Treatment),"Forbs and grasses added","Forbs added")) %>% 
+  distinct() 
+
+RichnessCover$removal <- factor(RichnessCover$removal, levels = c("One-time removal","Multi-year removal"))
+RichnessCover$seedMix <- factor(RichnessCover$seedMix, levels = c("Forbs and grasses added","Forbs added"))
+
+RClm <- RichnessCover %>% group_by(removal,seedMix) %>%
+   do(fitHour = lm(ES ~ RichnessPlot_N, data = .))
+
+anno <- data.frame(x1=c(2,2,2,2),
+                   x2=c(8,8,8,8),
+                   y1=c(1.3,1.3,1.3,1.3),
+                   removal=c("One-time removal","One-time removal","Multi-year removal","Multi-year removal"),
+                   seedMix=c("Forbs and grasses added","Forbs added","Forbs and grasses added","Forbs added"),
+                   textAnno=c("(A)","(B)","(C)","(D)"),
+                   textAnno2=c(paste0("Slope p-value = ",round(summary(RClm[[3]][[1]])[["coefficients"]][2,4],2)),
+                               paste0("Slope p-value = ",round(summary(RClm[[3]][[2]])[["coefficients"]][2,4],2)),
+                               paste0("Slope p-value = ",round(summary(RClm[[3]][[3]])[["coefficients"]][2,4],2)),
+                               paste0("Slope p-value = ",round(summary(RClm[[3]][[4]])[["coefficients"]][2,4],2))))
+
+anno$removal <- factor(anno$removal, levels = c("One-time removal","Multi-year removal"))
+anno$seedMix <- factor(anno$seedMix, levels = c("Forbs and grasses added","Forbs added"))
+
+glimpse(RichnessCover)
+
+RichnessCover %>% 
+  ggplot(aes(y=ES,x=RichnessPlot_N)) + 
+  geom_hline(yintercept=0, color="black", linetype="dashed", alpha=.5, linewidth=1)+
+  geom_point(size=7,alpha=0.7,aes(color=as.factor(year))) +
+  stat_smooth(method="lm",color="black") + 
+  # ggpubr::stat_regline_equation(label.y = 0.8, label.x = 10)+
+  facet_grid(removal~seedMix)+
+  geom_text(data=anno,aes(x=x1,y=y1,label=textAnno),size=5,fontface="bold")+
+  geom_text(data=anno,aes(x=x2,y=y1,label=textAnno2),size=4,fontface="italic")+
+  scale_color_manual(values = mocolor)+
+  xlab(expression(bold("Native richness (plot mean)")))+
+  labs(y=expression(atop(bold("Effect size of native cover"),atop("(Seeds added - Control).|Average|"^-1*"")))) +
+  theme_classic()+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text = element_text(size = 15.5),
+        axis.title = element_text(size = 18),
+        axis.title.y = element_text(vjust = -4),
+        strip.text = element_text(size = 15, face="bold"),
+        strip.background = element_blank(),
+        legend.margin=margin(-4,3,2,1),
+        legend.position = c(0.9,0.6),
+        legend.text = element_text(size=14),
+        legend.background = element_blank(),
+        legend.title = element_blank(),
+        axis.line = element_line(colour = "black"),
+        panel.border = element_blank(),
+        panel.spacing = unit(1, "lines"))+
+  guides(color=guide_legend(override.aes = list(size=4))) 
+
+ggsave(file.path(graph.wd,"ESCoverVsRich.png"), plot = last_plot(), width=6.8, height=8, dpi = 300, units="in")
+
+```
+
+Native cover x year x treatment
+```{r}
+NatCover2 <- predModel %>%
+  mutate(site=ifelse(site=="arb", "Forest 1",
+                     ifelse(site=="esgr","Forest 2",
+                            ifelse(site=="mbg", "Forest 3","Forest 4")))) %>% 
+  group_by(subplotOriginal,year,site) %>% 
+  summarise(MeanCov=mean(value),
+            CICovLower=MeanCov-(2*sd(value)),
+            CICovUpper=MeanCov+(2*sd(value))) %>% 
+  ungroup() %>% 
+    rename(subplot=subplotOriginal) %>% 
+  arrange(subplot) %>% 
+  mutate(Treatment=ifelse(subplot<7,1,2),
+         Treatment=ifelse(year==2021,Treatment+2,
+                          ifelse(year==2022,Treatment+4,Treatment))) %>% 
+  arrange(year) %>% 
+  mutate(guide = rep(1:3, each=4, times=6)) %>% 
+  arrange(year,guide) %>% 
+  mutate(index=sort(rep(seq(1,length=18,by=0.3),times=4)),
+         index=ifelse(year==2021,index+0.2,
+                      ifelse(year==2022,index+0.4,index)),
+         type=ifelse(subplot==3|subplot==9,"Forbs and\ngrasses added",
+                     ifelse(subplot==4|subplot==10,"Forbs added","Control")),
+         type2=ifelse(subplot==3|subplot==9,24,
+                     ifelse(subplot==4|subplot==10,22,21)),
+         Filling=ifelse(CICovLower<0&CICovUpper<0|CICovLower>0&CICovUpper>0,
+                                                            "black","white"),
+         removal=ifelse(subplot<5,"One-time removal","Multi-year removal")) %>% 
+  group_by(Treatment,year, Filling) %>% 
+  mutate(Filling2=cur_group_id())
+
+names(mocolor2) <- c("1","2","3","4","5","6")
+
+NatCover2$type <- factor(NatCover2$type, levels = c("Control","Forbs and\ngrasses added","Forbs added"))
+
+
+NatCover2 %>% 
+  ggplot(aes(y=MeanCov,x=index,shape=as.factor(type),color=as.factor(Treatment),fill=as.factor(Filling2)))+  
+  geom_errorbar(aes(ymin=CICovLower, ymax=CICovUpper),
+                width=.1, linewidth=1.3)+
+  geom_hline(yintercept=0, color="black", linetype="dashed", alpha=.5, linewidth=1)+
+  geom_point(size=6,stroke=2,shape=NatCover2$type2)+
+  scale_y_continuous(n.breaks=8,limits=c(NA,170))+
+  scale_x_continuous(breaks=c(1.85,3.85,5.85),
+                     labels=c("2020","2021","2022"),
+                     expand=c(0,0.3))+
+  scale_color_manual(values=mocolor2,
+                     breaks=c("1","2"),
+                     labels=c("One-time removal","Multi-year removal"),
+                     guide=guide_legend(order = 1,override.aes = list(shape=16,size=4,linetype = c(0,0),
+                                                            color="black",alpha=c(0.2,1),
+                                                            margin(-4,0,0,0))))+
+  scale_fill_manual(values=c("#DD9EFE","white","#AA0DFE","white","#ADCDFE","white",
+                             "#3283FE","white","#CEC19E","white","#85660D","white"),
+                    labels=c("Control","Forbs and\ngrasses added",
+                             "Forbs added","","","","","","","","",""))+
+  ylab("Native cover (%, mean+95%CI)")+
+  facet_wrap(~site)+
+  theme_classic()+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.y = element_text(size = 20),
+        axis.text.x = element_text(size=22,color = c(mocolor2[2], mocolor2[4], mocolor2[6])),
+        axis.title = element_text(size = 20, face="bold"),
+        axis.title.x = element_blank(),
+        axis.title.y = element_text(vjust = 1),
+        strip.text.x = element_text(size = 16,face="bold",hjust=0),
+        strip.background = element_blank(),
+        legend.margin=margin(-4,3,2,1),
+        legend.position = c(0.87,0.35),
+        legend.text = element_text(size=13),
+        legend.background = element_blank(),
+        legend.title = element_blank(),
+        axis.line = element_line(colour = "black"),
+        panel.border = element_blank(),
+        panel.spacing = unit(1, "lines")) +
+  guides(fill=guide_legend(order = 2,override.aes = list(shape=c(1,2,0,NA,NA,NA,NA,NA,NA,NA,NA,NA),
+                                                         size=3.5,
+                                                            linetype = c(0,0,0),
+                                                            color="black",margin(-4,0,0,0))))
+
+ggsave(file.path(graph.wd,"NatCoverVsYear.png"), plot = last_plot(), width=8.5, height=10, dpi = 300, units="in")
+```
