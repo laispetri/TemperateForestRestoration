@@ -1,6 +1,6 @@
-# Data from: Successful recovery of native plants after invasive removal in forest understories is driven by features of the native community rather than restoration treatments
+# Data from: Successful recovery of native plants post-invasive removal in forest understories is driven by native community features
 
-The files in DRYAD allow readers to run models to reproduce results and figures of the paper "Successful recovery of native plants after invasive removal in forest understories is driven by native richness, high SLA species, and low drought stress, rather than restoration treatments", currently submitted to Ecological Applications.
+The files in DRYAD allow readers to run models to reproduce results and figures of the paper "Successful recovery of native plants post-invasive removal in forest understories is driven by native community features", currently submitted to Ecological Applications.
 
 The code to reproduce results and figures can be found at (https://github.com/laispetri/TemperateForestRestoration.git)
 
