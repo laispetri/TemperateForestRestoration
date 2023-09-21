@@ -2,7 +2,7 @@
 
 The files in DRYAD allow readers to run models to reproduce results and figures of the paper "Successful recovery of native plants after invasive removal in forest understories is driven by native richness, high SLA species, and low drought stress, rather than restoration treatments", currently submitted to Ecological Applications.
 
-The code to reproduce results and figures can be found at **LINK**
+The code to reproduce results and figures can be found at (https://github.com/laispetri/TemperateForestRestoration.git)
 
 ## Description of the data and file structure
 
