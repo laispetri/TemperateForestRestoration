@@ -10,7 +10,7 @@ editor_options:
 **Please, read these notes before running the code:**
 
 1. You will need to create the following folders in the working directory: "data", "figures", and "modelparameters".
-2. Paste the files from this webpage (XXXX) inside of the "data" folder you just created.
+2. Paste the files from this webpage (https://doi.org/10.5061/dryad.mpg4f4r5w) inside of the "data" folder you just created.
 3. Note: figures included in the main manuscript or SM will not be displayed in the html file after knitting. They will be inside of the folder you created, "figures". The aspect ratio could not be maintained when knitting (probably due to my own coding limitation).
 
 
