@@ -127,11 +127,11 @@ FinalModel<-"model{
         
       }
         
-    C[i,1]<-B[treatment[i],1]*Cover2019[i]+alpha[1]*RichN[i,2]+alpha[2]*SLA[i,2]+alpha[3]*light[i,2]+alpha[4]*sm[i,2] #process model for 2020
+    C[i,1]<-B[treatment[i],1]*Cover2019[i]+alpha[1]*RichN[i,1]+alpha[2]*SLA[i,1]+alpha[3]*light[i,1]+alpha[4]*sm[i,1] #process model for 2020
      
     C[i,2]<-B[treatment[i],2]*(w[1]*grassAG20[i]+w[2]*forbsAG20[i]+w[3]*woodyAG20[i])+alpha[1]*RichN[i,2]+alpha[2]*SLA[i,2]+alpha[3]*light[i,2]+alpha[4]*sm[i,2] #process model for 2021
      
-    C[i,3]<-B[treatment[i],3]*(w[1]*grassAG21[i]+w[2]*forbsAG21[i]+w[3]*woodyAG21[i])+alpha[1]*RichN[i,2]+alpha[2]*SLA[i,2]+alpha[3]*light[i,2]+alpha[4]*sm[i,2] #process model for 2022
+    C[i,3]<-B[treatment[i],3]*(w[1]*grassAG21[i]+w[2]*forbsAG21[i]+w[3]*woodyAG21[i])+alpha[1]*RichN[i,3]+alpha[2]*SLA[i,3]+alpha[3]*light[i,3]+alpha[4]*sm[i,3] #process model for 2022
     
 
   }
@@ -208,10 +208,9 @@ dev.off()
 
 Exporting parameter values, predictions and residuals
 ```{r}
-Stats <- as.data.frame(parameters0[1]) %>% mutate_if(is.numeric, round,digits=4) %>% rownames_to_column(., var = "ParameterID")
-write_csv(Stats, file.path(dataout,"ParametersStatistics.csv"))
-Quantiles <- as.data.frame(parameters0[2]) %>% mutate_if(is.numeric, round,digits=4) %>% rownames_to_column(., var = "ParameterID")
-write_csv(Quantiles, file.path(dataout,"ParametersQuantiles.csv"))
+Quantiles <- as.data.frame(parameters0[2]) %>% mutate_if(is.numeric, round,digits=4) %>% rownames_to_column(., var = "ParameterID") %>% select(1,2,6)
+Stats <- as.data.frame(parameters0[1]) %>% mutate_if(is.numeric, round,digits=4) %>% rownames_to_column(., var = "ParameterID") %>% select(1:3) %>% left_join(Quantiles)
+write_csv(Stats, file.path(dataout,"ParameterValues.csv"))
 
 predicted <- coda.samples(m, c("Cover.pred"), n.iter=10000, thin = 1)
  pred <- as.data.frame(summary(predicted)$statistics)
@@ -332,25 +331,25 @@ DataPlot %>%
         panel.border = element_blank(),
         panel.spacing = unit(1, "lines")) +   
    guides(shape = guide_legend(override.aes = list(shape=c(1,2,0),size=3.5)))+
-  annotate("text", x=0.9,y=3.6,label="(A)",fontface="bold",size=6) +
+  # annotate("text", x=0.9,y=3.6,label="(A)",fontface="bold",size=6) +
   annotate("text", x=1,y=0.75,label="ac",size=5) +
-  annotate("text", x=1.3,y=0.77,label="ac",size=5) +
-  annotate("text", x=1.6,y=0.54,label="a",size=5) +
-  annotate("text", x=1.9,y=0.75,label="ac",size=5) +
-  annotate("text", x=2.2,y=0.55,label="a",size=5) +
-  annotate("text", x=2.5,y=0.45,label="a",size=5) +
-  annotate("text", x=3,y=1.55,label="be",size=5) +
-  annotate("text", x=3.3,y=2.13,label="be",size=5) +
-  annotate("text", x=3.6,y=1.3,label="bce",size=5) +
-  annotate("text", x=3.9,y=2.1,label="be",size=5) +
-  annotate("text", x=4.2,y=1.15,label="bcd",size=5) +
-  annotate("text", x=4.5,y=2.1,label="be",size=5) +
-  annotate("text", x=5,y=1.02,label="bcd",size=5) +
-  annotate("text", x=5.3,y=1.35,label="bcd",size=5) +
-  annotate("text", x=5.6,y=0.83,label="bcd",size=5) +
-  annotate("text", x=5.9,y=1.35,label="bcd",size=5) +
-  annotate("text", x=6.2,y=0.73,label="bcd",size=5) +
-  annotate("text", x=6.5,y=1.25,label="bcd",size=5)
+  annotate("text", x=1.3,y=0.87,label="ac",size=5) +
+  annotate("text", x=1.6,y=0.70,label="a",size=5) +
+  annotate("text", x=1.9,y=0.90,label="ac",size=5) +
+  annotate("text", x=2.2,y=0.58,label="a",size=5) +
+  annotate("text", x=2.5,y=0.56,label="a",size=5) +
+  annotate("text", x=3,y=1.40,label="be",size=5) +
+  annotate("text", x=3.3,y=2.05,label="be",size=5) +
+  annotate("text", x=3.6,y=1.22,label="bce",size=5) +
+  annotate("text", x=3.9,y=1.99,label="be",size=5) +
+  annotate("text", x=4.2,y=1.05,label="bcd",size=5) +
+  annotate("text", x=4.5,y=1.97,label="be",size=5) +
+  annotate("text", x=5,y=0.87,label="bcd",size=5) +
+  annotate("text", x=5.3,y=1.15,label="bcd",size=5) +
+  annotate("text", x=5.6,y=0.70,label="bcd",size=5) +
+  annotate("text", x=5.9,y=1.09,label="bcd",size=5) +
+  annotate("text", x=6.2,y=0.53,label="bcd",size=5) +
+  annotate("text", x=6.5,y=1.08,label="bcd",size=5)
 
 ggsave(file.path(graph.wd,"Q1.png"), plot = last_plot(), width=8, height=5, dpi = 300, units="in")
 ```
@@ -377,7 +376,7 @@ GFmodelpar %>%
         axis.line = element_line(colour = "black"),
       panel.border = element_blank(),
       plot.title = element_text(hjust = 0.5,size=18,color="darkblue"))+
-  annotate("text", x=0.62,y=0.6,label="(B)",fontface="bold",size=5)+
+  # annotate("text", x=0.62,y=0.6,label="(B)",fontface="bold",size=5)+
   annotate("text", x=1,y=0.23,label="a",size=6) +
   annotate("text", x=2,y=0.25,label="a",size=6) +
   annotate("text", x=3,y=0.24,label="a",size=6) 
@@ -420,7 +419,7 @@ ALPHAmodelpar %>%
   scale_x_continuous(breaks=c(1,1.95,2.9,4),
                       labels=c("Native richness", expression("CWM"[SLA]),"Light availability","Soil moisture"),
                      limits=c(0.6,4.25))+
-  ylab("Association with native cover\n(mean+95%CI)")+
+  ylab("Standardized coefficients\n(mean+95%CI)")+
   theme_bw()+
   theme(panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
@@ -823,4 +822,146 @@ NatCover2 %>%
                                                             color="black",margin(-4,0,0,0))))
 
 ggsave(file.path(graph.wd,"NatCoverVsYear.png"), plot = last_plot(), width=8.5, height=10, dpi = 300, units="in")
+```
+
+What invasive plants were present and most prevalent within each forest type?
+```{r}
+glimpse(dominantI)
+dominantI_subplot <- dominantI %>% 
+  left_join(distinct(select(data, c("forest_stand","plot")))) %>% 
+  mutate(forest = str_sub(forest_stand, 1, -2)) %>% 
+  group_by(forest) %>% 
+  add_count(sppName) %>% 
+  distinct(sppName,n) %>% 
+  ungroup() %>% 
+  arrange(forest,sppName) 
+
+dominantI_subplot %>% 
+  group_by(forest) %>% 
+  slice_max(n) %>%
+  ungroup()
+
+dominantI_subplot_summary <- dominantI_subplot %>% 
+  group_by(forest) %>% 
+  summarize(sppName = str_c(sppName, collapse = "; ")) %>% 
+  ungroup()
+```
+
+Which species from the seeding mixture were found in any of the forest understories?
+```{r}
+PE_divSpp <- read_csv("extraDataRevisions/PE_divSpp.csv") %>% 
+  filter(subplot %in% c(1,7)) # only control plots 
+PE_divSpp %>% 
+  filter(acronym %in% c("ACHMIL", "AGEALT", "AQUCAN", "ASCTUB", "DESCAD", "ELYCAN", "ELYHYS",
+                        "MONFIS", "PENDIG", "RUDHIR", "RUDTRI", "SYMOOL", "THADAS", "THADIO")) %>% 
+  distinct(sppName,acronym) %>% 
+  arrange(acronym)
+
+# species not found in the control plots: "DESCAD", "SYMOOL", "THADAS"
+```
+
+what was the raw change in cover after invasive species removal in response to the various treatments?
+```{r}
+rawDiff<- data %>%
+  mutate(forest = str_to_upper(str_sub(forest_stand, 1, -2))) %>% 
+  mutate(raw_diff = Cover3-Cover2019,
+         guide = rep(1:3, times=72),
+         index = rep(c(1.0,1.9,2.8, 1.3, 2.2, 3.1), times=36),
+         Treatment = rep(c(1,3,5, 2, 4, 6), times=36),
+         type=ifelse(subplotOriginal==3|subplotOriginal==9,"Forbs and\ngrasses added",ifelse(subplotOriginal==4|subplotOriginal==10,"Forbs added","Control")),
+         removal=ifelse(subplotOriginal<5,"One-time removal","Multi-year removal")) %>% 
+  arrange(guide)
+
+mocolor2 <- c("gray","black","gray","black","gray","black")
+names(mocolor2) <- c("1","2","3","4","5","6")
+
+
+rawDiff %>% 
+  ggplot(aes(x=index,y=raw_diff,color=as.factor(Treatment),shape=as.factor(type))) +
+  geom_hline(yintercept=0, color="black", linetype="dashed", alpha=.5, linewidth=1)+
+  geom_boxplot()+
+  geom_jitter(size=3, alpha=0.5, stroke=2, width = 0.05, height = 0) +
+    labs(y = "Difference in native cover\n2023-2019 (%)") + 
+  scale_x_continuous(breaks=c(1.15,2.05,2.95),
+                     labels=c("Control","Forbs and\ngrasses added","Forbs added"),
+                     expand=c(0,0.3))+
+  theme_classic()+
+  scale_color_manual(values=mocolor2, # Colors for all index values
+                     breaks=c("1","2"),
+                     labels=c("One-time removal","Multi-year removal"),
+                     guide=guide_legend(override.aes = list(shape=16,size=4,linetype = c(0,0),
+                                                            color="black",alpha=c(0.2,1))))+
+    theme(axis.text = element_text(size = 18),
+        axis.title.y = element_text(size = 20,face="bold"),
+        axis.title.x = element_blank(),
+        legend.position = c(0.15,0.1),
+        axis.line = element_line(colour = "black"),
+        legend.title = element_blank())+
+  guides(shape="none")
+
+ggsave(file.path(graph.wd,"RawDiffNatCov.png"), plot = last_plot(), width=6.8, height=5.2, dpi = 300, units="in")
+
+#statistics
+rawDiff %>%
+  group_by(subplot,type,removal) %>%
+  summarise(
+    mean_raw_diff = mean(raw_diff, na.rm = TRUE),
+    median_raw_diff = median(raw_diff, na.rm = TRUE),
+    sd_raw_diff = sd(raw_diff, na.rm = TRUE),
+    min_raw_diff = min(raw_diff, na.rm = TRUE),
+    max_raw_diff = max(raw_diff, na.rm = TRUE),
+    n = n()  # Number of observations
+  )
+
+summary(aov(raw_diff ~ removal + type + removal:type, data = rawDiff))
+
+```
+
+Quantifying effects
+```{r}
+# Forbs added multi-year removal/forbs added one-time removal
+round((Stats[Stats$ParameterID == "B[6,2]", "statistics.Mean"]/Stats[Stats$ParameterID == "B[3,2]", "statistics.Mean"]-1)*100,2)
+
+# 2021 rates were higher than the other two years
+Stats %>% 
+  filter(grepl("^B", ParameterID)) %>% 
+  mutate(year = rep(c(2020,2021,2022), each=6),
+         treatment = rep(1:6, times=3)) %>% 
+  select(treatment,year,statistics.Mean) %>% 
+  pivot_wider(names_from = year, values_from = statistics.Mean) %>% 
+  mutate(pct2120 = round((`2021`/`2020`-1)*100,2),
+         pct2122 = round((`2021`/`2022`-1)*100,2)) %>% 
+  select(pct2120,pct2122) %>% 
+  pivot_longer(cols = pct2120:pct2122,names_to = "id",values_to = "pct") %>% 
+  group_by(id) %>% 
+  summarise(pct = mean(pct))
+
+# Native cover and richer forests
+NatCover2 %>% 
+  ungroup() %>% 
+  mutate(removal=ifelse(subplot<5,"One-time","Multi-year"),
+         type=ifelse(subplot==3|subplot==9,"Forbs and\ngrasses added",
+                     ifelse(subplot==4|subplot==10,"Forbs added","Control"))) %>% 
+  select(type,removal, year, site, MeanCov) %>% 
+  pivot_wider(names_from = c(removal), values_from = MeanCov) %>% 
+  mutate(pctChange = round((`Multi-year`/`One-time`-1)*100,2)) %>% 
+  select(-type,-`One-time`,-`Multi-year`) %>% 
+  group_by(site, year) %>% 
+  summarise(pctChange = mean(pctChange)) %>% 
+  pivot_wider(names_from = c(year), values_from = pctChange) %>% 
+  mutate(times_higher_2120 = round(`2021`/`2020`,0),
+         times_higher_2220 = round(`2022`/`2020`,0))
+
+# Co-variate effects
+Stats %>% 
+  filter(grepl("^alpha", ParameterID)) %>% 
+  mutate(across(-ParameterID, round, digits = 2))
+
+# established vs not established
+traitsSeedMix %>% 
+  select(MixType, Presence, SLAmean) %>% 
+  distinct() %>% 
+  pivot_wider(names_from = c(Presence), values_from = SLAmean) %>% 
+  mutate(times_higher = `1`/`0`,
+         pct_higher = round((`1`/`0`-1)*100),0)
 ```
