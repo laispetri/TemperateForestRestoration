@@ -847,20 +847,7 @@ dominantI_subplot_summary <- dominantI_subplot %>%
   ungroup()
 ```
 
-Which species from the seeding mixture were found in any of the forest understories?
-```{r}
-PE_divSpp <- read_csv("extraDataRevisions/PE_divSpp.csv") %>% 
-  filter(subplot %in% c(1,7)) # only control plots 
-PE_divSpp %>% 
-  filter(acronym %in% c("ACHMIL", "AGEALT", "AQUCAN", "ASCTUB", "DESCAD", "ELYCAN", "ELYHYS",
-                        "MONFIS", "PENDIG", "RUDHIR", "RUDTRI", "SYMOOL", "THADAS", "THADIO")) %>% 
-  distinct(sppName,acronym) %>% 
-  arrange(acronym)
-
-# species not found in the control plots: "DESCAD", "SYMOOL", "THADAS"
-```
-
-what was the raw change in cover after invasive species removal in response to the various treatments?
+What was the raw change in cover after invasive species removal in response to the various treatments?
 ```{r}
 rawDiff<- data %>%
   mutate(forest = str_to_upper(str_sub(forest_stand, 1, -2))) %>% 
