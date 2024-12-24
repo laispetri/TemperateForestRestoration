@@ -257,7 +257,7 @@ ggplot(data = predModel, aes(y = value, x = Mean_pred)) +
       plot.title = element_text(hjust = 0.5,size=18,color="darkblue"),
       panel.spacing = unit(1, "lines"))
 
-ggsave(file.path(graph.wd,"ModelFit.png"), plot = last_plot(), width=7, height=5, dpi = 300, units="in")
+ggsave(file.path(graph.wd,"ModelFit.png"), plot = last_plot(), width=7, height=5, dpi = 600, units="in")
     
 ```
 
@@ -351,7 +351,7 @@ DataPlot %>%
   annotate("text", x=6.2,y=0.53,label="bcd",size=5) +
   annotate("text", x=6.5,y=1.08,label="bcd",size=5)
 
-ggsave(file.path(graph.wd,"Q1.png"), plot = last_plot(), width=8, height=5, dpi = 300, units="in")
+ggsave(file.path(graph.wd,"Q1.png"), plot = last_plot(), width=8, height=5, dpi = 600, units="in")
 ```
 
 Contribution of growth forms to treatment effects over time
@@ -381,7 +381,7 @@ GFmodelpar %>%
   annotate("text", x=2,y=0.25,label="a",size=6) +
   annotate("text", x=3,y=0.24,label="a",size=6) 
 
-ggsave(file.path(graph.wd,"GrowthForms.png"), plot = last_plot(), width=6, height=5, dpi = 300, units="in")
+ggsave(file.path(graph.wd,"GrowthForms.png"), plot = last_plot(), width=6, height=5, dpi = 600, units="in")
 
 ```
 
@@ -434,7 +434,7 @@ ALPHAmodelpar %>%
   annotate("text", x=0.6,y=20,label="(A)",fontface="bold",size=6)
   
 
-ggsave(file.path(graph.wd,"CovariatesEffects.png"), plot = last_plot(), width=6.8, height=5.2, dpi = 300, units="in")
+ggsave(file.path(graph.wd,"CovariatesEffects.png"), plot = last_plot(), width=6.8, height=5.2, dpi = 600, units="in")
 ```
 
 Vapor Pressure Deficit (VPD)
@@ -463,7 +463,7 @@ VPD %>%
         axis.line = element_line(colour = "black"))+
   annotate("segment", x=-Inf, xend=Inf, y=-Inf, yend=-Inf)+
   annotate("text", x=18,y=65,label="(B) Forest 1",fontface="bold",size=6)
-ggsave(file.path(graph.wd,"CumVPD_oneSite.png"), plot = last_plot(), width=6.8, height=5.2, dpi = 300, units="in")
+ggsave(file.path(graph.wd,"CumVPD_oneSite.png"), plot = last_plot(), width=6.8, height=5.2, dpi = 600, units="in")
 ```
 
 Which seeded species established the most? What are their characteristics?
@@ -516,7 +516,7 @@ traitsDiversity %>%
       axis.text.x = element_text(angle = 0),
         panel.spacing = unit(1, "lines"))+
   guides(fill="none",color=guide_legend(override.aes = list(linetype=c(0,0,1,0),shape=c(16,16,NA,NA)))) 
-ggsave(file.path(graph.wd,"TraitsSeededSppv2.png"), plot = last_plot(), width=6.8, height=5.2, dpi = 300, units="in")
+ggsave(file.path(graph.wd,"TraitsSeededSppv2.png"), plot = last_plot(), width=6.8, height=5.2, dpi = 600, units="in")
 
 traitsSeedMix %>% 
   lm(frequency ~ SLA_mm2.mg, data = .) %>% 
@@ -548,7 +548,7 @@ traitsSeedMix %>%
       axis.text.x = element_text(angle = 0)) + 
   guides(shape = guide_legend(override.aes = list(size=5,alpha=1)))+
   annotate("text", x=10,y=142,label="(C)",fontface="bold",size=6)
-ggsave(file.path(graph.wd,"TraitsSeededSppFreq.png"), plot = last_plot(), width=6.8, height=5.2, dpi = 300, units="in")
+ggsave(file.path(graph.wd,"TraitsSeededSppFreq.png"), plot = last_plot(), width=6.8, height=5.2, dpi = 600, units="in")
 ```
 
 ## Appendix
@@ -664,7 +664,7 @@ scale_color_manual(values = sitecolor,labels=c("Forest 1","Forest 2","Forest 3",
       legend.margin=margin(t=-10),
       legend.title=element_blank())+   
   guides(color = guide_legend(override.aes = list(alpha=100,size=5)))
-ggsave(file.path(graph.wd,"ResidualsIAS.png"), plot = last_plot(), width=7, height=6, dpi = 300, units="in")
+ggsave(file.path(graph.wd,"ResidualsIAS.png"), plot = last_plot(), width=7, height=6, dpi = 600, units="in")
 ```
 
 Exploring effect of native richness
@@ -735,7 +735,7 @@ RichnessCover %>%
         panel.spacing = unit(1, "lines"))+
   guides(color=guide_legend(override.aes = list(size=4))) 
 
-ggsave(file.path(graph.wd,"ESCoverVsRich.png"), plot = last_plot(), width=6.8, height=8, dpi = 300, units="in")
+ggsave(file.path(graph.wd,"ESCoverVsRich.png"), plot = last_plot(), width=6.8, height=8, dpi = 600, units="in")
 
 ```
 
@@ -821,7 +821,7 @@ NatCover2 %>%
                                                             linetype = c(0,0,0),
                                                             color="black",margin(-4,0,0,0))))
 
-ggsave(file.path(graph.wd,"NatCoverVsYear.png"), plot = last_plot(), width=8.5, height=10, dpi = 300, units="in")
+ggsave(file.path(graph.wd,"NatCoverVsYear.png"), plot = last_plot(), width=8.5, height=10, dpi = 600, units="in")
 ```
 
 What invasive plants were present and most prevalent within each forest type?
@@ -886,7 +886,7 @@ rawDiff %>%
         legend.title = element_blank())+
   guides(shape="none")
 
-ggsave(file.path(graph.wd,"RawDiffNatCov.png"), plot = last_plot(), width=6.8, height=5.2, dpi = 300, units="in")
+ggsave(file.path(graph.wd,"RawDiffNatCov.png"), plot = last_plot(), width=6.8, height=5.2, dpi = 600, units="in")
 
 #statistics
 rawDiff %>%
