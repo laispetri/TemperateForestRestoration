@@ -24,4 +24,4 @@ Cells with missing data are filled with NAs.
 
 All four CSV files needed to run this code can be found in DRYAD [https://doi.org/10.5061/dryad.mpg4f4r5w](https://doi.org/10.5061/dryad.mpg4f4r5w).
 
-Please, cite the original paper (once it is published) if using any data or code shared here.
+Please, cite the original paper (https://doi.org/10.1002/eap.70012) if using any data or code shared here.
